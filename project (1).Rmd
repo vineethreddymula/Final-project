@@ -1,0 +1,157 @@
+---
+title: "project"
+output: html_document
+date: "2022-11-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#Load the dataset
+dataset=read.csv("diabetes.csv")
+```
+
+Identify any Missing Data Values and replacing them with the mean values of the attribute
+
+```{r}
+dataset$Pregnancies = ifelse(is.na(dataset$Pregnancies), ave(dataset$Pregnancies, FUN = function(x) mean(x, na.rm = TRUE )), dataset$Pregnancies)
+
+dataset$Glucose = ifelse(is.na(dataset$Glucose), ave(dataset$Glucose, FUN = function(x) mean(x, na.rm = TRUE )), dataset$Glucose)
+
+dataset$BloodPressure = ifelse(is.na(dataset$BloodPressure), ave(dataset$BloodPressure, FUN = function(x) mean(x, na.rm = TRUE )), dataset$BloodPressure)
+
+dataset$SkinThickness = ifelse(is.na(dataset$SkinThickness), ave(dataset$SkinThickness, FUN = function(x) mean(x, na.rm = TRUE )), dataset$SkinThickness)
+
+dataset$Insulin = ifelse(is.na(dataset$Insulin), ave(dataset$Insulin, FUN = function(x) mean(x, na.rm = TRUE )), dataset$Insulin)
+
+dataset$BMI = ifelse(is.na(dataset$BMI), ave(dataset$BMI, FUN = function(x) mean(x, na.rm = TRUE )), dataset$BMI)
+
+dataset$Diabetes = ifelse(is.na(dataset$Diabetes), ave(dataset$Diabetes, FUN = function(x) mean(x, na.rm = TRUE )), dataset$Diabetes)
+
+dataset$Age = ifelse(is.na(dataset$Age), ave(dataset$Age, FUN = function(x) mean(x, na.rm = TRUE )), dataset$Age)
+
+dataset$Outcome = ifelse(is.na(dataset$Outcome), 0, dataset$Outcome)
+```
+
+The Dataset does not contain any type categorical values thus does not require encoding of the values.
+
+
+Splitting the Dataset into Train and Test Data
+
+```{r}
+library(caTools)
+set.seed(1)
+split=sample.split(dataset$Outcome,SplitRatio = 0.8)
+train_data=subset(dataset,split==TRUE)
+test_data=subset(dataset,split==FALSE)
+```
+
+```{r}
+train_data[0:5,]
+```
+
+```{r}
+dim(train_data)
+dim(test_data)
+```
+
+
+```{r}
+library(rpart)
+library(rpart.plot)
+```
+
+Checking if the outcomes are classified correctly using a table format for both train and test data
+
+```{r}
+prop.table(table(train_data$Outcome))
+```
+
+```{r}
+prop.table(table(test_data$Outcome))
+```
+
+This formula is to include the attributes required to construct the tree
+```{r}
+myFormula = Outcome ~ Pregnancies + Glucose + BloodPressure + SkinThickness + Insulin + BMI + DiabetesPedigreeFunction + Age + Diabetes
+```
+
+Creating the tree
+```{r}
+tree <- rpart(myFormula, data = train_data,method = 'class')
+```
+
+Plotting the tree
+```{r}
+rpart.plot(tree, extra = 106)
+```
+
+Function to classify the predicted value as either Diabetes or having No Diabetes
+```{r}
+diabetes_class <- function(hm, sp) {
+  if (sp>hm) {
+    return("Diabetes")
+  }
+  else {
+    return("No Diabetes")
+  }
+}
+test_data$Pred = test_data$label
+```
+
+Predicting the values for test data
+```{r}
+test_predict <- predict(tree,test_data)
+head(test_predict)
+```
+
+Using the predicted values to classify them as diabetes or no diabetes
+```{r}
+for (i in 1:nrow(test_predict)) {
+  msg = diabetes_class(test_predict[i,1], test_predict[i,2])
+  test_data$Pred[i]=msg
+}
+```
+
+```{r}
+test_data$Pred
+```
+
+```{r}
+for (i in 1:nrow(test_predict)) {
+  out = test_data$Outcome[i]
+  if (out == 0) {
+    test_data$Outcome[i] = "No Diabetes"
+  }
+  else {
+    test_data$Outcome[i] = "Diabetes"
+  }
+}
+```
+
+```{r}
+test_data$Outcome
+```
+
+Making the attributes as factors to create confusion matrix
+```{r}
+test_data$Pred = as.factor(test_data$Pred)
+test_data$Outcome = as.factor(test_data$Outcome)
+class(test_data$Pred)
+class(test_data$Outcome)
+```
+Creating confusion matrix and misclassification errors
+
+```{r}
+tab <- table(as.factor(test_data$Pred), as.factor(test_data$Outcome))
+```
+
+Importing caret package which contains confusion matrix function which displays confusion matrix, accuracy, sensitivity, kappa value, etc
+
+```{r}
+library("caret")
+caret::confusionMatrix(tab)
+```
